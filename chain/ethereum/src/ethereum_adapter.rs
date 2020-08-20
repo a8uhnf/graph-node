@@ -1204,7 +1204,10 @@ where
         }
 
         // Encode the call parameters according to the ABI
-        let call_data = call.function.encode_input(&call.args).unwrap();
+        let call_data = match call.function.encode_input(&call.args) {
+            Ok(data) => data,
+            Err(e) => return Box::new(future::err(EthereumContractCallError::EncodingError(e))),
+        };
 
         // Check if we have it cached, if not do the call and cache.
         Box::new(
@@ -1212,7 +1215,7 @@ where
                 .get_call(call.address, &call_data, call.block_ptr)
                 .map_err(|e| error!(logger, "call cache get error"; "error" => e.to_string()))
                 .ok()
-                .and_then(|x| x)
+                .flatten()
             {
                 Some(result) => {
                     Box::new(future::ok(result)) as Box<dyn Future<Item = _, Error = _> + Send>
